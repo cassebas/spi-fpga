@@ -18,7 +18,10 @@ entity SPI_MASTER is
         CLK_FREQ    : natural := 50e6; -- set system clock frequency in Hz
         SCLK_FREQ   : natural := 5e6;  -- set SPI clock frequency in Hz (condition: SCLK_FREQ <= CLK_FREQ/10)
         WORD_SIZE   : natural := 8;    -- size of transfer word in bits, must be power of two
-        SLAVE_COUNT : natural := 1     -- count of SPI slaves
+        SLAVE_COUNT : natural := 1;    -- count of SPI slaves
+        WIDTH_ADDR  : natural := 1     -- depends on the number of slaves (log2). It is not possible
+                                       --   to put a complex formula in the port definition.
+                                       --   (At least when using Quartus Prime.)
     );
     Port (
         CLK      : in  std_logic; -- system clock
@@ -30,7 +33,7 @@ entity SPI_MASTER is
         MISO     : in  std_logic; -- SPI serial data from slave to master
         -- INPUT USER INTERFACE
         DIN      : in  std_logic_vector(WORD_SIZE-1 downto 0); -- data for transmission to SPI slave
-        DIN_ADDR : in  std_logic_vector(natural(ceil(log2(real(SLAVE_COUNT))))-1 downto 0); -- SPI slave address
+        DIN_ADDR : in  std_logic_vector(WIDTH_ADDR-1 downto 0); -- SPI slave address
         DIN_LAST : in  std_logic; -- when DIN_LAST = 1, last data word, after transmit will be asserted CS_N
         DIN_VLD  : in  std_logic; -- when DIN_VLD = 1, data for transmission are valid
         DIN_RDY  : out std_logic; -- when DIN_RDY = 1, SPI master is ready to accept valid data for transmission
@@ -44,7 +47,10 @@ architecture RTL of SPI_MASTER is
 
     constant DIVIDER_VALUE : natural := (CLK_FREQ/SCLK_FREQ)/2;
     constant WIDTH_CLK_CNT : natural := natural(ceil(log2(real(DIVIDER_VALUE))));
-    constant WIDTH_ADDR    : natural := natural(ceil(log2(real(SLAVE_COUNT))));
+    -- CT made a generic for this constant to be specified by user, because
+    --    the port definition DIN_ADDR, containing this width, does not compile
+    --    with this formula
+    -- constant WIDTH_ADDR    : natural := natural(ceil(log2(real(SLAVE_COUNT))));
     constant BIT_CNT_WIDTH : natural := natural(ceil(log2(real(WORD_SIZE))));
 
     type state_t is (idle, first_edge, second_edge, transmit_end, transmit_gap);
