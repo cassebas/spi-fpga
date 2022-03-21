@@ -25,7 +25,7 @@ entity SPI_MASTER is
     );
     Port (
         CLK      : in  std_logic; -- system clock
-        RST      : in  std_logic; -- high active synchronous reset
+        RST      : in  std_logic; -- asynchronous reset, active low
         -- SPI MASTER INTERFACE
         SCLK     : out std_logic; -- SPI clock
         CS_N     : out std_logic_vector(SLAVE_COUNT-1 downto 0); -- SPI chip select, active in low
@@ -87,10 +87,12 @@ begin
 
     sys_clk_cnt_max <= '1' when (to_integer(sys_clk_cnt) = DIVIDER_VALUE-1) else '0';
 
-    sys_clk_cnt_reg_p : process (CLK)
+    sys_clk_cnt_reg_p : process (CLK, RST)
     begin
-        if (rising_edge(CLK)) then
-            if (RST = '1' or sys_clk_cnt_max = '1') then
+        if (RST = '0') then
+            sys_clk_cnt <= (others => '0');
+        elsif (rising_edge(CLK)) then
+            if (sys_clk_cnt_max = '1') then
                 sys_clk_cnt <= (others => '0');
             else
                 sys_clk_cnt <= sys_clk_cnt + 1;
@@ -102,10 +104,12 @@ begin
     --  SPI CLOCK GENERATOR AND REGISTER
     -- -------------------------------------------------------------------------
 
-    spi_clk_gen_p : process (CLK)
+    spi_clk_gen_p : process (CLK, RST)
     begin
-        if (rising_edge(CLK)) then
-            if (RST = '1' or spi_clk_rst = '1') then
+        if (RST = '0') then
+            spi_clk <= '0';
+        elsif (rising_edge(CLK)) then
+            if (spi_clk_rst = '1') then
                 spi_clk <= '0';
             elsif (sys_clk_cnt_max = '1') then
                 spi_clk <= not spi_clk;
@@ -121,10 +125,12 @@ begin
 
     bit_cnt_max <= '1' when (bit_cnt = WORD_SIZE-1) else '0';
 
-    bit_cnt_p : process (CLK)
+    bit_cnt_p : process (CLK, RST)
     begin
-        if (rising_edge(CLK)) then
-            if (RST = '1' or spi_clk_rst = '1') then
+        if (RST = '0') then
+            bit_cnt <= (others => '0');
+        elsif (rising_edge(CLK)) then
+            if (spi_clk_rst = '1') then
                 bit_cnt <= (others => '0');
             elsif (second_edge_en = '1') then
                 bit_cnt <= bit_cnt + 1;
@@ -136,12 +142,12 @@ begin
     --  SPI MASTER ADDRESSING
     -- -------------------------------------------------------------------------
 
-    addr_reg_p : process (CLK)
+    addr_reg_p : process (CLK, RST)
     begin
-        if (rising_edge(CLK)) then
-            if (RST = '1') then
-                addr_reg <= (others => '0');
-            elsif (load_data = '1') then
+        if (RST = '0') then
+            addr_reg <= (others => '0');
+        elsif (rising_edge(CLK)) then
+            if (load_data = '1') then
                 addr_reg <= unsigned(DIN_ADDR);
             end if;
         end if;
@@ -168,12 +174,12 @@ begin
     --  DIN LAST RESISTER
     -- -------------------------------------------------------------------------
 
-    din_last_reg_n_p : process (CLK)
+    din_last_reg_n_p : process (CLK, RST)
     begin
-        if (rising_edge(CLK)) then
-            if (RST = '1') then
-                din_last_reg_n <= '0';
-            elsif (load_data = '1') then
+        if (RST = '0') then
+            din_last_reg_n <= '0';
+        elsif (rising_edge(CLK)) then
+            if (load_data = '1') then
                 din_last_reg_n <= not DIN_LAST;
             end if;
         end if;
@@ -214,14 +220,12 @@ begin
     --  DATA OUT VALID RESISTER
     -- -------------------------------------------------------------------------
 
-    dout_vld_reg_p : process (CLK)
+    dout_vld_reg_p : process (CLK, RST)
     begin
-        if (rising_edge(CLK)) then
-            if (RST = '1') then
-                DOUT_VLD <= '0';
-            else
-                DOUT_VLD <= rx_data_vld;
-            end if;
+        if (RST = '0') then
+            DOUT_VLD <= '0';
+        elsif (rising_edge(CLK)) then
+            DOUT_VLD <= rx_data_vld;
         end if;
     end process;
 
@@ -230,14 +234,12 @@ begin
     -- -------------------------------------------------------------------------
 
     -- PRESENT STATE REGISTER
-    fsm_present_state_p : process (CLK)
+    fsm_present_state_p : process (CLK, RST)
     begin
-        if (rising_edge(CLK)) then
-            if (RST = '1') then
-                present_state <= idle;
-            else
-                present_state <= next_state;
-            end if;
+        if (RST = '0') then
+            present_state <= idle;
+        elsif (rising_edge(CLK)) then
+            present_state <= next_state;
         end if;
     end process;
 
